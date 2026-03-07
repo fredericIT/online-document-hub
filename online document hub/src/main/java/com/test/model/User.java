@@ -1,17 +1,20 @@
 package com.test.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -36,6 +39,7 @@ public class User {
     @Column(nullable = false)
     private String lastName;
     
+    @Builder.Default
     @Column(nullable = false)
     private Boolean enabled = true;
     
@@ -54,9 +58,11 @@ public class User {
     private Set<Role> roles;
     
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private Set<Document> ownedDocuments;
     
     @OneToMany(mappedBy = "sharedBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private Set<DocumentShare> sharedDocuments;
     
     @PrePersist

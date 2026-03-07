@@ -3,14 +3,17 @@ package com.test.model;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.Set;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "roles")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +29,7 @@ public class Role {
     @Column(nullable = false)
     private String description;
     
+    @JsonIgnore
     @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
     private Set<User> users;
 }

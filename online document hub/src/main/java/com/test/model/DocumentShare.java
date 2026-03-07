@@ -1,16 +1,19 @@
 package com.test.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "document_shares")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,14 +25,17 @@ public class DocumentShare {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
+    @JsonIgnore
     private Document document;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_with_user_id", nullable = false)
+    @JsonIgnore
     private User sharedWithUser;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_by_user_id", nullable = false)
+    @JsonIgnore
     private User sharedBy;
     
     @Enumerated(EnumType.STRING)
@@ -42,17 +48,12 @@ public class DocumentShare {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
     
+    @Builder.Default
     @Column(nullable = false)
     private Boolean active = true;
     
     @PrePersist
     protected void onCreate() {
         sharedAt = LocalDateTime.now();
-    }
-    
-    public enum SharePermission {
-        READ_ONLY,
-        READ_WRITE,
-        ADMIN
     }
 }

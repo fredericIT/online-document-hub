@@ -12,4 +12,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByOwner(User owner);
     List<Document> findByOwnerId(Long ownerId);
     boolean existsByFileName(String fileName);
+    List<Document> findByTitleContainingIgnoreCase(String title);
+    List<Document> findByDescriptionContainingIgnoreCase(String description);
 }
