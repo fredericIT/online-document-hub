@@ -20,10 +20,21 @@ import java.util.Set;
 public class UserController {
 
     private final UserService userService;
+    private final com.test.service.AuditLogService auditLogService;
+
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> createUser(@Valid @RequestBody UserCreationRequest request) {
+    public ResponseEntity<User> createUser(@Valid @RequestBody UserCreationRequest request,
+                                         jakarta.servlet.http.HttpServletRequest httpRequest,
+                                         org.springframework.security.core.Authentication authentication) {
         User user = User.builder()
             .username(request.getUsername())
             .email(request.getEmail())
@@ -34,6 +45,9 @@ public class UserController {
             .build();
         
         User createdUser = userService.createUser(user, request.getRoles());
+        
+        auditLogService.log("CREATE_USER", authentication.getName(), "Created user: " + request.getUsername(), getClientIp(httpRequest));
+        
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
 
@@ -85,22 +99,31 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id,
+                                         jakarta.servlet.http.HttpServletRequest httpRequest,
+                                         org.springframework.security.core.Authentication authentication) {
         userService.deleteUser(id);
+        auditLogService.log("DELETE_USER", authentication.getName(), "Deleted user ID: " + id, getClientIp(httpRequest));
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/enable")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> enableUser(@PathVariable Long id) {
+    public ResponseEntity<User> enableUser(@PathVariable Long id,
+                                         jakarta.servlet.http.HttpServletRequest httpRequest,
+                                         org.springframework.security.core.Authentication authentication) {
         User user = userService.enableUser(id);
+        auditLogService.log("ENABLE_USER", authentication.getName(), "Enabled user ID: " + id, getClientIp(httpRequest));
         return ResponseEntity.ok(user);
     }
 
     @PutMapping("/{id}/disable")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> disableUser(@PathVariable Long id) {
+    public ResponseEntity<User> disableUser(@PathVariable Long id,
+                                          jakarta.servlet.http.HttpServletRequest httpRequest,
+                                          org.springframework.security.core.Authentication authentication) {
         User user = userService.disableUser(id);
+        auditLogService.log("DISABLE_USER", authentication.getName(), "Disabled user ID: " + id, getClientIp(httpRequest));
         return ResponseEntity.ok(user);
     }
 

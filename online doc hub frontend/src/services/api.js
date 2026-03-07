@@ -34,13 +34,41 @@ api.interceptors.response.use(
   }
 );
 
+// User Management
 export const getUsers = async () => {
-  const response = await api.get('/admin/users');
+  const response = await api.get('/users');
   return response.data;
 };
 
-export const deleteUser = async (userId) => {
-  await api.delete(`/admin/users/${userId}`);
+export const deleteUser = async (id) => {
+  const response = await api.delete(`/users/${id}`);
+  return response.data;
+};
+
+export const enableUser = async (id) => {
+  const response = await api.put(`/users/${id}/enable`);
+  return response.data;
+};
+
+export const disableUser = async (id) => {
+  const response = await api.put(`/users/${id}/disable`);
+  return response.data;
+};
+
+// Admin Features
+export const getAuditLogs = async () => {
+  const response = await api.get('/admin/audit');
+  return response.data;
+};
+
+export const getSettings = async () => {
+  const response = await api.get('/admin/settings');
+  return response.data;
+};
+
+export const updateSetting = async (id, value) => {
+  const response = await api.put(`/admin/settings/${id}`, { configValue: value });
+  return response.data;
 };
 
 export default api;

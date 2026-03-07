@@ -24,6 +24,15 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final UserService userService;
+    private final com.test.service.AuditLogService auditLogService;
+
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
@@ -52,12 +61,16 @@ public class DocumentController {
     public ResponseEntity<Document> uploadDocument(@RequestParam("file") MultipartFile file,
                                                   @RequestParam("title") String title,
                                                   @RequestParam(value = "description", required = false) String description,
-                                                  Authentication authentication) {
+                                                  Authentication authentication,
+                                                  jakarta.servlet.http.HttpServletRequest request) {
         String username = authentication.getName();
         User owner = userService.getUserByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
         Document createdDocument = documentService.uploadDocument(file, title, description, owner);
+        
+        auditLogService.log("UPLOAD_DOCUMENT", username, "Uploaded file: " + file.getOriginalFilename(), getClientIp(request));
+        
         return new ResponseEntity<>(createdDocument, HttpStatus.CREATED);
     }
 
@@ -142,7 +155,8 @@ public class DocumentController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<Void> deleteDocument(@PathVariable Long id, Authentication authentication,
+                                             jakarta.servlet.http.HttpServletRequest request) {
         Optional<Document> existingDocument = documentService.getDocumentById(id);
         
         if (existingDocument.isPresent()) {
@@ -154,6 +168,9 @@ public class DocumentController {
             if (doc.getOwner().getId().equals(currentUser.getId()) || 
                 authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
                 documentService.deleteDocument(id);
+                
+                auditLogService.log("DELETE_DOCUMENT", username, "Deleted document ID: " + id, getClientIp(request));
+                
                 return ResponseEntity.noContent().build();
             }
         }

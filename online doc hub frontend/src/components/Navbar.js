@@ -26,7 +26,7 @@ const Navbar = () => {
               <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
                 <Link to="/documents" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Documents</Link>
                 <Link to="/upload" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Upload</Link>
-                {user.role === 'ADMIN' && (
+                {user.roles?.some(r => r.name === 'ROLE_ADMIN') && (
                   <Link to="/admin" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Admin</Link>
                 )}
               </div>
