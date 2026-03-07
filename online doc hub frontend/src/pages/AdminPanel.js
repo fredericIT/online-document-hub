@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getUsers, deleteUser, enableUser, disableUser, getAuditLogs, getSettings, updateSetting } from '../services/api';
+import { getUsers, deleteUser, enableUser, disableUser, getAuditLogs, getSettings, updateSetting, getAllShares, revokeShare } from '../services/api';
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [settings, setSettings] = useState([]);
+  const [shares, setShares] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -15,7 +16,8 @@ const AdminPanel = () => {
     totalUsers: users.length,
     activeUsers: users.filter(u => u.enabled).length,
     adminUsers: users.filter(u => u.roles?.some(r => r.name === 'ROLE_ADMIN')).length,
-    totalLogs: logs.length
+    totalLogs: logs.length,
+    activeShares: shares.length
   };
 
   useEffect(() => {
@@ -35,6 +37,9 @@ const AdminPanel = () => {
       } else if (activeTab === 'settings') {
         const data = await getSettings();
         setSettings(data);
+      } else if (activeTab === 'shares') {
+        const data = await getAllShares();
+        setShares(data);
       }
     } catch (err) {
       setError(`Failed to fetch ${activeTab}`);
@@ -77,6 +82,18 @@ const AdminPanel = () => {
       loadData();
     } catch (err) {
       setError('Failed to update setting');
+    }
+  };
+
+  const handleRevokeShare = async (shareId) => {
+    if (window.confirm('Are you sure you want to revoke this share? The recipient will lose access.')) {
+      try {
+        await revokeShare(shareId);
+        setSuccess('Share revoked successfully');
+        loadData();
+      } catch (err) {
+        setError('Failed to revoke share');
+      }
     }
   };
 
@@ -178,6 +195,18 @@ const AdminPanel = () => {
           </div>
           <div className="text-3xl font-black text-rose-600">{stats.totalLogs}</div>
         </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-violet-100 transition-all group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-violet-50 rounded-2xl text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors duration-300">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Shares</span>
+          </div>
+          <div className="text-3xl font-black text-violet-600">{stats.activeShares}</div>
+        </div>
       </div>
 
       {/* Tabs Control */}
@@ -197,6 +226,11 @@ const AdminPanel = () => {
             id="settings" 
             label="System Settings" 
             icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><circle cx="12" cy="12" r="3" strokeWidth={2} /></svg>}
+          />
+          <TabButton 
+            id="shares" 
+            label="Global Shares" 
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
           />
         </div>
 
@@ -249,13 +283,13 @@ const AdminPanel = () => {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-2">
-                          {user.roles && user.roles.map(role => (
-                            <span key={role.id} className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-lg border ${
-                              role.name.includes('ADMIN') 
+                          {user.roles && Array.from(new Set(user.roles.map(r => r.name))).map(roleName => (
+                            <span key={roleName} className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-lg border ${
+                              roleName.includes('ADMIN') 
                                 ? 'bg-amber-50 text-amber-700 border-amber-200' 
                                 : 'bg-sky-50 text-sky-700 border-sky-200'
                             }`}>
-                              {role.name.replace('ROLE', '').replace('_', ' ').trim()}
+                              {roleName.replace('ROLE', '').replace('_', ' ').trim()}
                             </span>
                           ))}
                         </div>
@@ -372,6 +406,71 @@ const AdminPanel = () => {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {activeTab === 'shares' && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Document</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Shared By</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Recipient</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Permissions</th>
+                    <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {shares.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-20 text-center">
+                        <p className="text-gray-400 font-bold">No active shares found globally.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    shares.map((share) => (
+                      <tr key={share.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-6">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-bold text-gray-900 truncate max-w-[150px]" title={share.document.title}>{share.document.title}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-sm font-medium text-gray-700">{share.sharedBy.username}</div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-sm font-medium text-gray-700">{share.sharedWithUser.username}</div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-tighter rounded-lg ${
+                            share.permission === 'ADMIN' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                            share.permission === 'READ_WRITE' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                            'bg-sky-50 text-sky-700 border border-sky-100'
+                          }`}>
+                            {share.permission.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <button
+                            onClick={() => handleRevokeShare(share.id)}
+                            className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-95"
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

@@ -25,6 +25,15 @@ public class DocumentShareController {
 
     private final DocumentShareService documentShareService;
     private final UserService userService;
+    private final com.test.service.AuditLogService auditLogService;
+
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
@@ -106,6 +115,13 @@ public class DocumentShareController {
         return ResponseEntity.ok(shares);
     }
 
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<DocumentShare>> getAllShares() {
+        List<DocumentShare> shares = documentShareService.getAllActiveShares();
+        return ResponseEntity.ok(shares);
+    }
+
     @PutMapping("/{id}/permission")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<DocumentShare> updateSharePermission(@PathVariable Long id,
@@ -156,7 +172,8 @@ public class DocumentShareController {
 
     @PutMapping("/{id}/revoke")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> revokeShare(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<Void> revokeShare(@PathVariable Long id, Authentication authentication,
+                                          jakarta.servlet.http.HttpServletRequest request) {
         Optional<DocumentShare> existingShare = documentShareService.getDocumentShareById(id);
         
         if (existingShare.isPresent()) {
@@ -168,6 +185,9 @@ public class DocumentShareController {
             if (share.getSharedBy().getId().equals(currentUser.getId()) || 
                 authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
                 documentShareService.revokeShare(id);
+                
+                auditLogService.log("REVOKE_SHARE", username, "Revoked share ID: " + id + " for document: " + share.getDocument().getTitle(), getClientIp(request));
+                
                 return ResponseEntity.ok().build();
             }
         }
@@ -177,7 +197,8 @@ public class DocumentShareController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> deleteShare(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<Void> deleteShare(@PathVariable Long id, Authentication authentication,
+                                          jakarta.servlet.http.HttpServletRequest request) {
         Optional<DocumentShare> existingShare = documentShareService.getDocumentShareById(id);
         
         if (existingShare.isPresent()) {
@@ -189,6 +210,9 @@ public class DocumentShareController {
             if (share.getSharedBy().getId().equals(currentUser.getId()) || 
                 authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
                 documentShareService.deleteShare(id);
+                
+                auditLogService.log("DELETE_SHARE", username, "Deleted share ID: " + id, getClientIp(request));
+                
                 return ResponseEntity.noContent().build();
             }
         }
@@ -201,6 +225,10 @@ public class DocumentShareController {
     public ResponseEntity<Boolean> checkAccess(@PathVariable Long documentId,
                                            @RequestParam SharePermission requiredPermission,
                                            Authentication authentication) {
+        if (authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            return ResponseEntity.ok(true);
+        }
+
         String username = authentication.getName();
         User currentUser = userService.getUserByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));

@@ -3,6 +3,8 @@ package com.test.service;
 import com.test.model.Document;
 import com.test.model.User;
 import com.test.repository.DocumentRepository;
+import com.test.repository.UserRepository;
+import com.test.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
+import java.util.List;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +31,8 @@ import java.util.Optional;
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -62,7 +69,22 @@ public class DocumentService {
                 .owner(owner)
                 .build();
 
-            return documentRepository.save(document);
+            Document saved = documentRepository.save(document);
+
+            // Notify all other users about the new document
+            List<User> allUsers = userRepository.findAll();
+            for (User user : allUsers) {
+                if (!user.getId().equals(owner.getId())) {
+                    notificationService.createNotification(
+                        user,
+                        "NEW_DOCUMENT",
+                        "New document '" + title + "' was uploaded by " + owner.getUsername(),
+                        "/documents/" + saved.getId()
+                    );
+                }
+            }
+
+            return saved;
         } catch (IOException e) {
             throw new RuntimeException("Could not store file. Error: " + e.getMessage());
         }

@@ -71,4 +71,68 @@ export const updateSetting = async (id, value) => {
   return response.data;
 };
 
+// Share Management
+export const getAllShares = async () => {
+  const response = await api.get('/document-shares/all');
+  return response.data;
+};
+
+export const revokeShare = async (id) => {
+  const response = await api.put(`/document-shares/${id}/revoke`);
+  return response.data;
+};
+
+// Messaging
+export const sendMessage = async (recipientId, content, file) => {
+    const formData = new FormData();
+    formData.append('recipientId', recipientId);
+    if (content) formData.append('content', content);
+    if (file) formData.append('file', file);
+    
+    const response = await api.post('/messages/send', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return response.data;
+};
+
+export const getConversation = async (userId) => {
+    const response = await api.get(`/messages/conversation/${userId}`);
+    return response.data;
+};
+
+// Notifications
+export const getNotifications = async () => {
+    const response = await api.get('/notifications');
+    return response.data;
+};
+
+export const getUnreadNotifications = async () => {
+    const response = await api.get('/notifications/unread');
+    return response.data;
+};
+
+export const getUnreadCount = async () => {
+    const response = await api.get('/notifications/unread/count');
+    return response.data;
+};
+
+export const markNotificationRead = async (id) => {
+    const response = await api.put(`/notifications/${id}/read`);
+    return response.data;
+};
+
+export const markAllNotificationsRead = async () => {
+    const response = await api.put('/notifications/read-all');
+    return response.data;
+};
+
+export const downloadMessageAttachment = async (messageId) => {
+    const response = await api.get(`/messages/attachment/${messageId}`, {
+        responseType: 'blob'
+    });
+    return response.data;
+};
+
 export default api;

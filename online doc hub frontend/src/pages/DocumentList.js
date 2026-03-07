@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { getDocuments, deleteDocument } from '../services/documentService';
+import { useAuth } from '../services/authService';
 
 const DocumentList = () => {
+  const { user } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,7 +45,9 @@ const DocumentList = () => {
   return (
     <div className="py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Documents</h2>
+        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+          {user?.roles?.some(r => r.name === 'ROLE_ADMIN') ? 'Global Document Repository' : 'My Documents'}
+        </h2>
         <a href="/upload" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
           <svg className="mr-2 -ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />

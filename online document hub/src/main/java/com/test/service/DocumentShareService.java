@@ -23,6 +23,7 @@ public class DocumentShareService {
     private final DocumentShareRepository documentShareRepository;
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public DocumentShare shareDocument(Long documentId, Long sharedWithUserId, Long sharedByUserId, 
                                      SharePermission permission, LocalDateTime expiresAt) {
@@ -167,5 +168,9 @@ public class DocumentShareService {
             share.setActive(false);
             documentShareRepository.save(share);
         });
+    }
+
+    public List<DocumentShare> getAllActiveShares() {
+        return documentShareRepository.findActiveShares(LocalDateTime.now());
     }
 }

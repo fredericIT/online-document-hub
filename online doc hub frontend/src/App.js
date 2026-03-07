@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import UploadDocument from './pages/UploadDocument';
 import DocumentList from './pages/DocumentList';
 import AdminPanel from './pages/AdminPanel';
+import Chat from './pages/Chat';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
               <Route path="/upload" element={<PrivateRoute><UploadDocument /></PrivateRoute>} />
               <Route path="/documents" element={<PrivateRoute><DocumentList /></PrivateRoute>} />
               <Route path="/admin" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
+              <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
             </Routes>
           </main>
         </div>

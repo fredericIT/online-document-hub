@@ -11,8 +11,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import jakarta.validation.Valid;
+
+
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
@@ -153,6 +161,36 @@ public class DocumentController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/download/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
+        Optional<Document> documentOpt = documentService.getDocumentById(id);
+        if (documentOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Document document = documentOpt.get();
+        // Since we enabled global visibility, any authenticated user can download.
+        // However, we could still add ownership check here if we wanted to restrict download
+        // but the requirement "admin must have full access" is satisfied as well.
+
+        try {
+            Path file = Paths.get(document.getFilePath());
+            Resource resource = new UrlResource(file.toUri());
+
+            if (resource.exists() || resource.isReadable()) {
+                return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(document.getContentType() != null ? document.getContentType() : "application/octet-stream"))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + document.getOriginalFileName() + "\"")
+                    .body(resource);
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+        } catch (MalformedURLException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long id, Authentication authentication,
@@ -165,11 +203,12 @@ public class DocumentController {
             User currentUser = userService.getUserByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
             
+            // Admin bypass or owner check
             if (doc.getOwner().getId().equals(currentUser.getId()) || 
                 authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
                 documentService.deleteDocument(id);
                 
-                auditLogService.log("DELETE_DOCUMENT", username, "Deleted document ID: " + id, getClientIp(request));
+                auditLogService.log("DELETE_DOCUMENT", username, "Deleted document ID: " + id + " (Title: " + doc.getTitle() + ")", getClientIp(request));
                 
                 return ResponseEntity.noContent().build();
             }

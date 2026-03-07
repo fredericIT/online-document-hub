@@ -1,10 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../services/authService';
+import { getUnreadCount } from '../services/api';
+import NotificationCenter from './NotificationCenter';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      const fetchCount = async () => {
+        try {
+          const count = await getUnreadCount();
+          setUnreadCount(count);
+        } catch (error) {
+          console.error('Failed to fetch unread count', error);
+        }
+      };
+      
+      fetchCount();
+      const interval = setInterval(fetchCount, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -26,6 +47,7 @@ const Navbar = () => {
               <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
                 <Link to="/documents" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Documents</Link>
                 <Link to="/upload" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Upload</Link>
+                <Link to="/chat" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Chat</Link>
                 {user.roles?.some(r => r.name === 'ROLE_ADMIN') && (
                   <Link to="/admin" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Admin</Link>
                 )}
@@ -33,6 +55,24 @@ const Navbar = () => {
             )}
           </div>
           <div className="flex items-center space-x-4">
+            {user && (
+              <div className="relative">
+                <button 
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all relative"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationCenter isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
+              </div>
+            )}
             {user ? (
               <>
                 <div className="flex items-center space-x-3">
