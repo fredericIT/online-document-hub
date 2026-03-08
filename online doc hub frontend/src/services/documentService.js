@@ -8,7 +8,7 @@ export const getDocuments = async () => {
 export const uploadDocument = async (formData) => {
   const response = await api.post('/documents/upload', formData, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Content-Type': undefined,  // Let axios set multipart/form-data with the correct boundary
     },
   });
   return response.data;
