@@ -24,3 +24,8 @@ export const downloadDocument = async (documentId) => {
   });
   return response.data;
 };
+
+export const updateDocument = async (documentId, documentData) => {
+  const response = await api.put(`/documents/${documentId}`, documentData);
+  return response.data;
+};

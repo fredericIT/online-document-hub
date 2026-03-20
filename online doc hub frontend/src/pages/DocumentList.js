@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getDocuments, deleteDocument } from '../services/documentService';
+import { getDocuments, deleteDocument, updateDocument } from '../services/documentService';
 import { useAuth } from '../services/authService';
+import EditDocumentModal from '../components/EditDocumentModal';
 
 const EXT_COLORS = {
   PDF:  { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.25)',   text: '#fca5a5' },
@@ -21,6 +22,8 @@ const DocumentList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingDocument, setEditingDocument] = useState(null);
   const isAdmin = user?.roles?.some(r => r.name === 'ROLE_ADMIN');
 
   useEffect(() => { fetchDocuments(); }, []);
@@ -35,6 +38,20 @@ const DocumentList = () => {
     if (!window.confirm('Delete this document?')) return;
     try { await deleteDocument(id); setDocuments(d => d.filter(x => x.id !== id)); }
     catch { setError('Could not delete document'); }
+  };
+
+  const handleEditClick = (doc) => {
+    setEditingDocument(doc);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (updatedDoc) => {
+    try {
+      const response = await updateDocument(updatedDoc.id, updatedDoc);
+      setDocuments(docs => docs.map(doc => (doc.id === response.id ? response : doc)));
+    } catch {
+      setError('Could not update document');
+    }
   };
 
   const filtered = documents.filter(d =>
@@ -133,6 +150,11 @@ const DocumentList = () => {
                     </svg>
                     Download
                   </button>
+                  <button onClick={() => handleEditClick(doc)} className="btn-ghost px-3 py-2 text-indigo-400 hover:bg-white/5 hover:text-indigo-300" title="Edit">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
                   <button onClick={() => handleDelete(doc.id)} className="btn-danger px-3 py-2" title="Delete">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -144,6 +166,14 @@ const DocumentList = () => {
           })}
         </div>
       )}
+
+      {/* Edit Document Modal */}
+      <EditDocumentModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleSaveEdit}
+        editDoc={editingDocument}
+      />
     </div>
   );
 };
