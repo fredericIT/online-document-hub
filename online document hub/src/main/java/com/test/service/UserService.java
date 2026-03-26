@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 
 @Service
@@ -25,6 +26,19 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public User createUser(User user, Set<String> roleNames) {
+        // Email validation: must not start with numeric, must be @gmail.com
+        String emailRegex = "^[a-zA-Z][a-zA-Z0-9._%+-]*@gmail\\.com$";
+        if (user.getEmail() == null || !user.getEmail().matches(emailRegex)) {
+            throw new RuntimeException("Invalid email format. Must be @gmail.com and cannot start with a number.");
+        }
+
+        // Strong password validation
+        String password = user.getPasswordHash(); // This is the plain password before hashing in the current flow
+        String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$";
+        if (password == null || !password.matches(passwordRegex)) {
+            throw new RuntimeException("Password is too weak. Must be at least 8 characters with uppercase, lowercase, number, and special character.");
+        }
+
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new RuntimeException("Username already exists");
         }
@@ -50,7 +64,29 @@ public class UserService {
         }
         user.setRoles(roles);
 
+        // Generate 6-digit verification code
+        String code = String.valueOf(100000 + new Random().nextInt(900000));
+        user.setVerificationToken(code);
+        user.setEnabled(false);
+
         return userRepository.save(user);
+    }
+
+    public Optional<User> findByVerificationToken(String token) {
+        return userRepository.findByVerificationToken(token);
+    }
+
+    public boolean verifyUser(String token) {
+        Optional<User> userOptional = userRepository.findByVerificationToken(token);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.setEnabled(true);
+            user.setVerificationToken(null);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            return true;
+        }
+        return false;
     }
 
     public Optional<User> getUserById(Long id) {
@@ -116,5 +152,12 @@ public class UserService {
         user.setEnabled(false);
         user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
+    }
+
+    public void updateLastSeen(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setLastSeen(LocalDateTime.now());
+            userRepository.save(user);
+        });
     }
 }

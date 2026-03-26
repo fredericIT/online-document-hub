@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../services/authService';
-import { getUnreadCount } from '../services/api';
+import { getUnreadCount, heartbeat } from '../services/api';
 import NotificationCenter from './NotificationCenter';
 
 const NavLink = ({ to, label }) => {
@@ -34,9 +34,20 @@ const Navbar = () => {
     const fetch = async () => {
       try { setUnreadCount(await getUnreadCount()); } catch {}
     };
+    const pulse = async () => {
+      try { await heartbeat(); } catch {}
+    };
+    
     fetch();
+    pulse();
+    
     const t = setInterval(fetch, 15000);
-    return () => clearInterval(t);
+    const h = setInterval(pulse, 30000);
+    
+    return () => {
+      clearInterval(t);
+      clearInterval(h);
+    };
   }, [user]);
 
   return (
@@ -89,9 +100,13 @@ const Navbar = () => {
 
               {/* User chip */}
               <div className="flex items-center gap-3 pl-3 border-l" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-indigo-300"
+                <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold text-indigo-300"
                   style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
-                  {user.username.charAt(0).toUpperCase()}
+                  {user.profileImage ? (
+                    <img src={`http://localhost:8081${user.profileImage}`} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    user.username.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <span className="text-sm font-semibold text-slate-200 hidden lg:block">{user.username}</span>
               </div>

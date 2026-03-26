@@ -27,10 +27,11 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16 relative overflow-hidden">
-      {/* Background grid + blobs */}
-      <div className="bg-grid absolute inset-0 pointer-events-none" />
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-violet-600/15 rounded-full blur-3xl pointer-events-none" />
+      {/* Background with overlay */}
+      <div className="absolute inset-0 z-0">
+        <img src="/bg-auth.png" alt="Background" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]" />
+      </div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}

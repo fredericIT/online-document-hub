@@ -56,19 +56,31 @@ const NotificationCenter = ({ isOpen, onClose }) => {
             </svg>
           </div>
         ) : notifications.length > 0 ? (
-          notifications.map((n) => (
-            <div key={n.id} onClick={() => handleMarkRead(n)}
-              className="flex gap-3 px-4 py-3.5 cursor-pointer transition-colors"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: !n.isRead ? 'rgba(99,102,241,0.06)' : 'transparent' }}>
-              <div className="shrink-0 mt-0.5">
-                <div className="w-2 h-2 rounded-full mt-1.5" style={{ background: !n.isRead ? '#6366f1' : 'rgba(255,255,255,0.15)' }} />
+          notifications.map((n) => {
+            const getTypeStyle = (type) => {
+              switch(type) {
+                case 'ACCESS_REVOKED': return { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', dot: '#ef4444' };
+                case 'ACCESS_GRANTED': return { bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.3)', dot: '#22c55e' };
+                case 'ACCOUNT_CREATED': return { bg: 'rgba(168,85,247,0.15)', border: 'rgba(168,85,247,0.3)', dot: '#a855f7' };
+                case 'NEW_MESSAGE': return { bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)', dot: '#3b82f6' };
+                default: return { bg: n.isRead ? 'transparent' : 'rgba(99,102,241,0.06)', border: 'rgba(255,255,255,0.05)', dot: !n.isRead ? '#6366f1' : 'rgba(255,255,255,0.15)' };
+              }
+            };
+            const style = getTypeStyle(n.isRead ? null : n.type);
+            return (
+              <div key={n.id} onClick={() => handleMarkRead(n)}
+                className="flex gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-white/5"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: !n.isRead ? style.bg : 'transparent' }}>
+                <div className="shrink-0 mt-0.5">
+                  <div className="w-2 h-2 rounded-full mt-1.5" style={{ background: style.dot }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm leading-snug ${!n.isRead ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>{n.content}</p>
+                  <p className="text-xs text-slate-600 mt-1">{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm leading-snug ${!n.isRead ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>{n.content}</p>
-                <p className="text-xs text-slate-600 mt-1">{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</p>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center py-12">
             <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-3"

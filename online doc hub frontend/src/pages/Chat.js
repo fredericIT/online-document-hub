@@ -4,10 +4,11 @@ import { useLocation } from 'react-router-dom';
 import { getConversation, sendMessage, getUsers, downloadMessageAttachment } from '../services/api';
 
 import { useAuth } from '../services/authService';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 const Chat = () => {
     const [users, setUsers] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -21,6 +22,8 @@ const Chat = () => {
 
     useEffect(() => {
         loadUsers();
+        const interval = setInterval(loadUsers, 20000);
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -43,7 +46,7 @@ const Chat = () => {
             const interval = setInterval(() => loadConversation(selectedUser.id), 5000);
             return () => clearInterval(interval);
         }
-    }, [selectedUser]);
+    }, [selectedUser, location.search]);
 
     useEffect(() => {
         scrollToBottom();
@@ -57,9 +60,27 @@ const Chat = () => {
         try {
             const data = await getUsers();
             setUsers(data.filter(u => u.id !== currentUser.id));
+            
+            // If we have a query param, update selectedUser with latest data from list
+            const params = new URLSearchParams(location.search);
+            const userId = params.get('user');
+            if (userId) {
+                const refreshed = data.find(u => u.id === parseInt(userId));
+                if (refreshed) setSelectedUser(refreshed);
+            } else if (selectedUser) {
+                const refreshed = data.find(u => u.id === selectedUser.id);
+                if (refreshed) setSelectedUser(refreshed);
+            }
         } catch (error) {
             console.error('Failed to load users', error);
         }
+    };
+
+    const isUserOnline = (lastSeen) => {
+        if (!lastSeen) return false;
+        const lastSeenDate = new Date(lastSeen);
+        const now = new Date();
+        return (now - lastSeenDate) < 60000;
     };
 
     const loadConversation = async (userId) => {
@@ -105,6 +126,13 @@ const Chat = () => {
         }
     };
 
+    const chatBackgroundStyle = {
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='300' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='rgba(0,0,0,0.06)' stroke='rgba(0,0,0,0.06)' stroke-width='2' fill-opacity='0'%3E%3Ctext x='200' y='150' transform='rotate(-15 200 150)' font-family='system-ui, sans-serif' font-size='24' font-weight='800' fill='rgba(0,0,0,0.06)' stroke='none' text-anchor='middle' dominant-baseline='middle'%3EOnline Document Hub%3C/text%3E%3Cpath d='M60,240 h-20 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h15 l10,10 v25 a5,5 0 0,1 -5,5 z' stroke-linecap='round' stroke-linejoin='round' /%3E%3Cpath d='M300,50 h-20 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h15 l10,10 v25 a5,5 0 0,1 -5,5 z' stroke-linecap='round' stroke-linejoin='round' /%3E%3Cpath d='M340,140 a15,15 0 1,0 -30,0 v15 l10,-5 h15 a15,15 0 0,0 5,-10 z' stroke-linecap='round' stroke-linejoin='round' /%3E%3Cpath d='M100,100 c0,-10 15,-10 15,0 v20 c0,15 -20,15 -20,0 v-25 c0,-20 30,-20 30,0 v20' stroke-linecap='round' /%3E%3Ccircle cx='250' cy='260' r='6' /%3E%3Ccircle cx='80' cy='80' r='4' fill='rgba(0,0,0,0.06)' stroke='none' /%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundSize: '400px 300px',
+        backgroundRepeat: 'repeat',
+        backgroundColor: '#efeae2'
+    };
+
     return (
         <div className="flex h-[calc(100vh-100px)] bg-gray-50 rounded-2xl overflow-hidden shadow-xl border border-gray-100">
             {/* User List */}
@@ -112,20 +140,50 @@ const Chat = () => {
                 <div className="p-6 border-b border-gray-50">
                     <h2 className="text-xl font-bold text-gray-800">Messages</h2>
                     <p className="text-xs text-gray-400 mt-1">Chat with other system users</p>
+                    <div className="mt-4 relative">
+                        <input
+                            type="text"
+                            placeholder="Search users..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        />
+                        <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
                 </div>
                 <div className="divide-y divide-gray-50">
-                    {users.map(user => (
+                    {users.filter(u => u.username.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase())).map(user => (
                         <div 
                             key={user.id}
                             onClick={() => setSelectedUser(user)}
                             className={`p-4 flex items-center gap-3 cursor-pointer transition-all hover:bg-gray-50 ${selectedUser?.id === user.id ? 'bg-blue-50 border-l-4 border-blue-600 shadow-sm' : ''}`}
                         >
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
-                                {user.username.charAt(0).toUpperCase()}
+                            <div className="relative">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                                    {user.profileImage ? (
+                                        <img src={`http://localhost:8081${user.profileImage}`} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        user.username.charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                {isUserOnline(user.lastSeen) && (
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                                )}
                             </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-800">{user.username}</h3>
-                                <p className="text-xs text-gray-400 truncate w-32">{user.email}</p>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-semibold text-gray-800 flex items-center justify-between">
+                                    {user.username}
+                                    {isUserOnline(user.lastSeen) ? (
+                                        <span className="text-[10px] text-green-500 font-normal">Online</span>
+                                    ) : (
+                                        <span className="text-[10px] text-gray-400 font-normal">
+                                            {user.lastSeen ? formatDistanceToNow(new Date(user.lastSeen), { addSuffix: true }) : 'Never seen'}
+                                        </span>
+                                    )}
+                                </h3>
+                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
                             </div>
                         </div>
                     ))}
@@ -137,19 +195,28 @@ const Chat = () => {
                 {selectedUser ? (
                     <>
                         <div className="p-4 border-b border-gray-100 flex items-center gap-3 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                                {selectedUser.username.charAt(0).toUpperCase()}
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                                {selectedUser.profileImage ? (
+                                    <img src={`http://localhost:8081${selectedUser.profileImage}`} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                    selectedUser.username.charAt(0).toUpperCase()
+                                )}
                             </div>
                             <div>
                                 <h2 className="text-md font-bold text-gray-800">{selectedUser.username}</h2>
-                                <span className="text-[10px] text-green-500 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                                    Online
-                                </span>
+                                {isUserOnline(selectedUser.lastSeen) ? (
+                                    <span className="text-[10px] text-green-500 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                        Online
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-gray-400">
+                                        Last seen {selectedUser.lastSeen ? formatDistanceToNow(new Date(selectedUser.lastSeen), { addSuffix: true }) : 'Never'}
+                                    </span>
+                                )}
                             </div>
                         </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4" style={chatBackgroundStyle}>
                             {messages.map((msg, idx) => (
                                 <div 
                                     key={idx} 
@@ -218,7 +285,7 @@ const Chat = () => {
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         placeholder="Type your message..."
-                                        className="w-full bg-transparent border-none focus:ring-0 text-sm py-2 resize-none max-h-32"
+                                        className="w-full bg-transparent border-none focus:ring-0 text-sm py-2 resize-none max-h-32 text-gray-900"
                                         rows="1"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -241,7 +308,7 @@ const Chat = () => {
                         </form>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-12 bg-gray-50/30">
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-12" style={chatBackgroundStyle}>
                         <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 border border-gray-100">
                             <svg className="w-12 h-12 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

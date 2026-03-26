@@ -4,17 +4,20 @@ import com.test.config.JwtTokenProvider;
 import com.test.dto.ErrorResponse;
 import com.test.dto.UserResponse;
 import com.test.model.User;
+import com.test.service.FileStorageService;
 import com.test.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,6 +32,8 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
+    private final com.test.service.EmailService emailService;
+    private final FileStorageService fileStorageService;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -62,8 +67,10 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerUser(
+            @RequestPart("userData") @Valid RegisterRequest registerRequest,
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
         try {
             if (userService.getUserByUsername(registerRequest.getUsername()).isPresent()) {
                 ErrorResponse errorResponse = new ErrorResponse();
@@ -81,16 +88,26 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
             }
 
+            String avatarFileName = null;
+            if (avatar != null && !avatar.isEmpty()) {
+                avatarFileName = fileStorageService.storeFile(avatar);
+            }
+
             User user = User.builder()
                 .username(registerRequest.getUsername())
                 .email(registerRequest.getEmail())
                 .passwordHash(registerRequest.getPassword())
                 .firstName(registerRequest.getFirstName())
                 .lastName(registerRequest.getLastName())
-                .enabled(true)
+                .profileImage(avatarFileName)
+                .enabled(false)
                 .build();
 
             User createdUser = userService.createUser(user, registerRequest.getRoles());
+            
+            // Send verification email
+            emailService.sendVerificationEmail(createdUser.getEmail(), createdUser.getVerificationToken());
+            
             UserResponse userResponse = convertToUserResponse(createdUser);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(userResponse);
@@ -101,6 +118,51 @@ public class AuthController {
             errorResponse.setMessage("Registration failed. Please try again.");
             errorResponse.setTimestamp(System.currentTimeMillis());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyUser(@RequestParam("token") String token) {
+        boolean verified = userService.verifyUser(token);
+        if (verified) {
+            return ResponseEntity.ok(Map.of("message", "Email verified successfully. You can now login."));
+        } else {
+            ErrorResponse errorResponse = new ErrorResponse();
+            errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+            errorResponse.setMessage("Invalid or expired verification token");
+            errorResponse.setTimestamp(System.currentTimeMillis());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/heartbeat")
+    public ResponseEntity<?> heartbeat(Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated()) {
+            userService.updateLastSeen(authentication.getName());
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    @PostMapping(value = "/upload-avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            String fileName = fileStorageService.storeFile(file);
+            User user = userService.getUserByUsername(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            user.setProfileImage(fileName);
+            userService.updateUser(user.getId(), user);
+
+            return ResponseEntity.ok(convertToUserResponse(user));
+        } catch (Exception e) {
+            log.error("Avatar upload failed for user: {}", authentication.getName(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "Failed to upload avatar: " + e.getMessage()));
         }
     }
 
@@ -115,6 +177,10 @@ public class AuthController {
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());
         response.setRoles(user.getRoles());
+        response.setLastSeen(user.getLastSeen());
+        if (user.getProfileImage() != null) {
+            response.setProfileImage("/api/files/avatars/" + user.getProfileImage());
+        }
         return response;
     }
 

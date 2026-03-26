@@ -21,6 +21,8 @@ public class UserController {
 
     private final UserService userService;
     private final com.test.service.AuditLogService auditLogService;
+    private final com.test.service.NotificationService notificationService;
+    private final com.test.service.EmailService emailService;
 
     private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
@@ -45,6 +47,14 @@ public class UserController {
             .build();
         
         User createdUser = userService.createUser(user, request.getRoles());
+        
+        // Send notification to the new user
+        notificationService.createNotification(
+            createdUser,
+            "ACCOUNT_CREATED",
+            "🎉 Welcome! Your account has been created by an administrator.",
+            null
+        );
         
         auditLogService.log("CREATE_USER", authentication.getName(), "Created user: " + request.getUsername(), getClientIp(httpRequest));
         
@@ -102,8 +112,20 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id,
                                          jakarta.servlet.http.HttpServletRequest httpRequest,
                                          org.springframework.security.core.Authentication authentication) {
+        // Get user info before deletion for audit log
+        userService.getUserById(id).ifPresent(targetUser -> {
+            // Notify user via Email before deletion
+            emailService.sendAccountDeletedEmail(targetUser.getEmail());
+
+            // Note: notification is not sent as user is being deleted
+            auditLogService.log(
+                "DELETE_USER",
+                authentication.getName(),
+                "Deleted user: " + targetUser.getUsername() + " (ID: " + id + ")",
+                getClientIp(httpRequest)
+            );
+        });
         userService.deleteUser(id);
-        auditLogService.log("DELETE_USER", authentication.getName(), "Deleted user ID: " + id, getClientIp(httpRequest));
         return ResponseEntity.noContent().build();
     }
 
@@ -113,7 +135,19 @@ public class UserController {
                                          jakarta.servlet.http.HttpServletRequest httpRequest,
                                          org.springframework.security.core.Authentication authentication) {
         User user = userService.enableUser(id);
-        auditLogService.log("ENABLE_USER", authentication.getName(), "Enabled user ID: " + id, getClientIp(httpRequest));
+        
+        // Notify user their access has been granted
+        notificationService.createNotification(
+            user,
+            "ACCESS_GRANTED",
+            "✅ Your account access has been granted by an administrator. You can now log in.",
+            null
+        );
+        
+        // Notify via email
+        emailService.sendAccountEnabledEmail(user.getEmail());
+        
+        auditLogService.log("ENABLE_USER", authentication.getName(), "Enabled user: " + user.getUsername() + " (ID: " + id + ")", getClientIp(httpRequest));
         return ResponseEntity.ok(user);
     }
 
@@ -123,7 +157,19 @@ public class UserController {
                                           jakarta.servlet.http.HttpServletRequest httpRequest,
                                           org.springframework.security.core.Authentication authentication) {
         User user = userService.disableUser(id);
-        auditLogService.log("DISABLE_USER", authentication.getName(), "Disabled user ID: " + id, getClientIp(httpRequest));
+        
+        // Notify user their access has been revoked
+        notificationService.createNotification(
+            user,
+            "ACCESS_REVOKED",
+            "⚠️ Your account access has been revoked by an administrator. Please contact support for more information.",
+            null
+        );
+        
+        // Notify via email
+        emailService.sendAccountDisabledEmail(user.getEmail());
+        
+        auditLogService.log("DISABLE_USER", authentication.getName(), "Disabled user: " + user.getUsername() + " (ID: " + id + ")", getClientIp(httpRequest));
         return ResponseEntity.ok(user);
     }
 

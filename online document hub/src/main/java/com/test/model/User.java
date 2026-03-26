@@ -43,13 +43,22 @@ public class User {
     
     @Builder.Default
     @Column(nullable = false)
-    private Boolean enabled = true;
+    private Boolean enabled = false;
+
+    @Column
+    private String verificationToken;
     
     @Column(nullable = false)
     private LocalDateTime createdAt;
     
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column
+    private LocalDateTime lastSeen;
+
+    @Column
+    private String profileImage;
     
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -66,6 +75,22 @@ public class User {
     @OneToMany(mappedBy = "sharedBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<DocumentShare> sharedDocuments;
+
+    @OneToMany(mappedBy = "sharedWithUser", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<DocumentShare> receivedShares;
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<Notification> notifications;
+    
+    @OneToMany(mappedBy = "sender", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<Message> sentMessages;
+    
+    @OneToMany(mappedBy = "recipient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<Message> receivedMessages;
     
     @PrePersist
     protected void onCreate() {

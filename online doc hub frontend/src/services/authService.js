@@ -40,12 +40,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (userData) => {
+  const register = async (data) => {
     try {
-      const response = await api.post('/auth/register', userData);
+      const isFormData = data instanceof FormData;
+      const response = await api.post('/auth/register', data, {
+        headers: {
+          'Content-Type': isFormData ? 'multipart/form-data' : 'application/json'
+        }
+      });
       return response.data;
     } catch (error) {
-      throw new Error('Registration failed');
+      throw new Error(error.response?.data?.message || 'Registration failed');
+    }
+  };
+
+  const verify = async (token) => {
+    try {
+      const response = await api.get(`/auth/verify?token=${token}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Verification failed');
     }
   };
 
@@ -59,6 +73,7 @@ export const AuthProvider = ({ children }) => {
     user,
     login,
     register,
+    verify,
     logout,
     loading
   };
