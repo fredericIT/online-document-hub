@@ -90,7 +90,7 @@ const Register = () => {
       await register(submitData);
       setShowVerification(true);
     } catch (err) { 
-      setError(err.message || 'Registration failed. Username or email may already be taken.'); 
+      setError(err.response?.data?.message || 'Registration failed. Username or email may already be taken.'); 
     }
     finally { setLoading(false); }
   };

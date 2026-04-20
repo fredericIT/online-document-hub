@@ -18,8 +18,8 @@ const Login = () => {
     try {
       await login(formData);
       navigate('/');
-    } catch {
-      setError('Invalid username or password. Please try again.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid username or password. Please try again.');
     } finally {
       setLoading(false);
     }
