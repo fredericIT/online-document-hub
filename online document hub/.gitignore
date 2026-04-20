@@ -31,3 +31,15 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Production artifacts & logs ###
+uploads/
+*.log
+*.pid
+backend_run.log
+backend_run_lampp.log
+backend_startup.log
+backend.log
+last_logs.txt
+test.pdf
+test.txt
