@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: online-document-hub
+    env: docker
+    plan: free
+    region: frankfurt
+    rootDir: .
+    envVars:
+      - key: DATABASE_USERNAME
+        fromDatabase:
+          name: document-hub-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: document-hub-db
+          property: password
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
+        # Render provides connectionString (jdbc:postgresql is needed for Java)
+        # However, Render's internal DB connection structure is best injected piecemeal or we transform the standard connection string.
+        # Actually, Render supports passing the internal JDBC URL directly using syncing if we do it in dashboard, but in yaml it's safer to build it.
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: document-hub-db
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: document-hub-db
+          property: port
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: document-hub-db
+          property: database
+      
+      # App configs
+      - key: PORT
+        value: "8081"
+      - key: UPLOAD_DIR
+        value: "/app/uploads"
+
+databases:
+  - name: document-hub-db
+    plan: free
+    region: frankfurt
+    databaseName: online_document_hub
+    user: postgres
