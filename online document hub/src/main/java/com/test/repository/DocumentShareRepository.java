@@ -33,11 +33,11 @@ public interface DocumentShareRepository extends JpaRepository<DocumentShare, Lo
     List<DocumentShare> findActiveSharesSharedByUser(@Param("userId") Long userId, @Param("now") LocalDateTime now);
     
     @Query("SELECT CASE WHEN COUNT(ds) > 0 THEN true ELSE false END FROM DocumentShare ds WHERE ds.document.id = :documentId AND ds.sharedWithUser.id = :userId AND ds.active = true AND (ds.expiresAt IS NULL OR ds.expiresAt > :now) AND ds.permission = :permission")
-    boolean hasPermission(@Param("documentId") Long documentId, @Param("userId") Long userId, @Param("permission") SharePermission permission);
+    boolean hasPermission(@Param("documentId") Long documentId, @Param("userId") Long userId, @Param("permission") SharePermission permission, @Param("now") LocalDateTime now);
     
     @Query("SELECT CASE WHEN COUNT(ds) > 0 THEN true ELSE false END FROM DocumentShare ds WHERE ds.document.id = :documentId AND ds.sharedWithUser.id = :userId AND ds.active = true AND (ds.expiresAt IS NULL OR ds.expiresAt > :now) AND (ds.permission = 'READ_WRITE' OR ds.permission = 'ADMIN')")
-    boolean hasWritePermission(@Param("documentId") Long documentId, @Param("userId") Long userId);
+    boolean hasWritePermission(@Param("documentId") Long documentId, @Param("userId") Long userId, @Param("now") LocalDateTime now);
     
     @Query("SELECT CASE WHEN COUNT(ds) > 0 THEN true ELSE false END FROM DocumentShare ds WHERE ds.document.id = :documentId AND ds.sharedWithUser.id = :userId AND ds.active = true AND (ds.expiresAt IS NULL OR ds.expiresAt > :now) AND ds.permission = 'ADMIN'")
-    boolean hasAdminPermission(@Param("documentId") Long documentId, @Param("userId") Long userId);
+    boolean hasAdminPermission(@Param("documentId") Long documentId, @Param("userId") Long userId, @Param("now") LocalDateTime now);
 }

@@ -1,6 +1,7 @@
 package com.test.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "document_shares")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
 @Builder
@@ -45,7 +47,7 @@ public class DocumentShare {
     @Column(nullable = false)
     private LocalDateTime sharedAt;
     
-    @Column(nullable = false)
+    @Column(nullable = true)
     private LocalDateTime expiresAt;
     
     @Builder.Default

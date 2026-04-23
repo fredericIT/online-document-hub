@@ -23,7 +23,7 @@ public class DocumentShareService {
     private final DocumentShareRepository documentShareRepository;
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
-    private final NotificationService notificationService;
+
 
     public DocumentShare shareDocument(Long documentId, Long sharedWithUserId, Long sharedByUserId, 
                                      SharePermission permission, LocalDateTime expiresAt) {
@@ -121,7 +121,7 @@ public class DocumentShareService {
     }
 
     public boolean hasAccess(Long documentId, Long userId, SharePermission requiredPermission) {
-        return documentShareRepository.hasPermission(documentId, userId, requiredPermission) ||
+        return documentShareRepository.hasPermission(documentId, userId, requiredPermission, LocalDateTime.now()) ||
                getActiveSharesSharedWithUser(userId).stream()
                    .filter(share -> share.getDocument().getId().equals(documentId))
                    .anyMatch(share -> hasPermission(share.getPermission(), requiredPermission));
@@ -148,15 +148,15 @@ public class DocumentShareService {
     }
     
     public boolean checkDocumentAccess(Long documentId, Long userId, SharePermission requiredPermission) {
-        return documentShareRepository.hasPermission(documentId, userId, requiredPermission);
+        return documentShareRepository.hasPermission(documentId, userId, requiredPermission, LocalDateTime.now());
     }
     
     public boolean checkDocumentWriteAccess(Long documentId, Long userId) {
-        return documentShareRepository.hasWritePermission(documentId, userId);
+        return documentShareRepository.hasWritePermission(documentId, userId, LocalDateTime.now());
     }
     
     public boolean checkDocumentAdminAccess(Long documentId, Long userId) {
-        return documentShareRepository.hasAdminPermission(documentId, userId);
+        return documentShareRepository.hasAdminPermission(documentId, userId, LocalDateTime.now());
     }
     
     public void cleanupExpiredShares() {

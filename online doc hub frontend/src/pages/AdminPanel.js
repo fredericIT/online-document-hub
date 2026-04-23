@@ -4,6 +4,7 @@ import {
   getAuditLogs, getSettings, updateSetting,
   getAllShares, revokeShare
 } from '../services/api';
+import { getDocuments, deleteDocument } from '../services/documentService';
 
 /* ─── Reusable sub-components ─────────────────────────────────────── */
 
@@ -27,6 +28,7 @@ const AdminPanel = () => {
   const [logs,     setLogs]     = useState([]);
   const [settings, setSettings] = useState([]);
   const [shares,   setShares]   = useState([]);
+  const [documents,setDocuments]= useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
   const [success,  setSuccess]  = useState('');
@@ -37,19 +39,28 @@ const AdminPanel = () => {
     adminUsers:  users.filter(u => u.roles?.some(r => r.name === 'ROLE_ADMIN')).length,
     totalLogs:   logs.length,
     activeShares: shares.length,
+    totalDocs:   documents.length,
   };
 
-  useEffect(() => { loadData(); }, [activeTab]);
+  useEffect(() => { 
+    loadData(true); 
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
-  const loadData = async () => {
-    setLoading(true); setError('');
+  const loadData = async (showLoading = true) => {
+    if (showLoading) setLoading(true); 
+    setError('');
     try {
       if      (activeTab === 'users')    { setUsers(await getUsers()); }
       else if (activeTab === 'audit')    { setLogs(await getAuditLogs()); }
       else if (activeTab === 'settings') { setSettings(await getSettings()); }
       else if (activeTab === 'shares')   { setShares(await getAllShares()); }
+      else if (activeTab === 'documents'){ setDocuments(await getDocuments()); }
     } catch { setError(`Failed to load ${activeTab}`); }
-    finally { setLoading(false); }
+    finally { if (showLoading) setLoading(false); }
   };
 
   const handleToggle = async (user) => {
@@ -77,8 +88,31 @@ const AdminPanel = () => {
     catch { setError('Failed to revoke share'); }
   };
 
+  const handleDeleteDocument = async (id) => {
+    if (!window.confirm('Delete this document permanently?')) return;
+    try { await deleteDocument(id); setSuccess('Document deleted'); loadData(); }
+    catch { setError('Failed to delete document'); }
+  };
+
+  const handleExport = () => {
+    let dataToExport = [];
+    if (activeTab === 'users') dataToExport = users;
+    else if (activeTab === 'audit') dataToExport = logs;
+    else if (activeTab === 'settings') dataToExport = settings;
+    else if (activeTab === 'shares') dataToExport = shares;
+    else if (activeTab === 'documents') dataToExport = documents;
+
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeTab}-export.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   /* ── Loading state ── */
-  if (loading && !users.length && !logs.length && !settings.length) return (
+  if (loading && !users.length && !logs.length && !settings.length && !documents.length) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <svg className="animate-spin h-10 w-10 text-indigo-500" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -93,6 +127,7 @@ const AdminPanel = () => {
     { id: 'users',    label: 'User Management',  icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
     { id: 'audit',    label: 'Audit Logs',       icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
     { id: 'settings', label: 'System Settings',  icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><circle cx="12" cy="12" r="3" strokeWidth={2} /></svg> },
+    { id: 'documents',label: 'Documents',        icon: <svg className="w-4 h-4" fill="none" viewBox="0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
     { id: 'shares',   label: 'Global Shares',    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg> },
   ];
 
@@ -113,12 +148,20 @@ const AdminPanel = () => {
           </h1>
           <p className="text-slate-500 text-base mt-2">Monitor activity and manage platform settings.</p>
         </div>
-        <button onClick={loadData} className="btn-ghost flex items-center gap-2 self-start">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleExport} className="btn-primary flex items-center gap-2 self-start" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 'bold' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export JSON
+          </button>
+          <button onClick={() => loadData(true)} className="btn-ghost flex items-center gap-2 self-start" style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: 'rgba(255,255,255,0.05)', color: 'white' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* ── Stat cards ── */}
@@ -127,6 +170,7 @@ const AdminPanel = () => {
         <StatCard icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label="Active" value={stats.activeUsers} accent="#22d3ee" />
         <StatCard icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>} label="Admins" value={stats.adminUsers} accent="#f59e0b" />
         <StatCard icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label="Log Entries" value={stats.totalLogs} accent="#ef4444" />
+        <StatCard icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} label="Documents" value={stats.totalDocs} accent="#10b981" />
         <StatCard icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>} label="Shares" value={stats.activeShares} accent="#a78bfa" />
       </div>
 
@@ -281,6 +325,45 @@ const AdminPanel = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Documents tab */}
+        {activeTab === 'documents' && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <tr><Th>Title</Th><Th>Owner</Th><Th>File Size</Th><Th>Uploaded</Th><Th right>Action</Th></tr>
+              </thead>
+              <tbody>
+                {documents.length === 0 ? (
+                  <tr><td colSpan="5" className="px-4 py-16 text-center text-slate-600 text-sm">No documents found.</td></tr>
+                ) : documents.map((d, i) => (
+                  <tr key={d.id} style={{ borderBottom: i < documents.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+                    className="transition-colors hover:bg-white/[0.03]">
+                    <td className="px-4 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="icon-box shrink-0" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                          <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white truncate max-w-[200px]">{d.title}</p>
+                          <p className="text-xs text-slate-500 truncate max-w-[200px]">{d.fileName}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-5"><p className="text-sm text-slate-300">{d.owner?.username || 'Unknown'}</p></td>
+                    <td className="px-4 py-5"><p className="text-sm text-slate-300">{d.fileSize ? (d.fileSize / 1024).toFixed(2) + ' KB' : 'Unknown'}</p></td>
+                    <td className="px-4 py-5"><p className="text-sm text-slate-400">{new Date(d.createdAt || Date.now()).toLocaleDateString()}</p></td>
+                    <td className="px-4 py-5 text-right">
+                      <button onClick={() => handleDeleteDocument(d.id)} className="btn-danger px-3 py-1.5 text-xs">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
