@@ -4,7 +4,7 @@ import com.test.model.Role;
 import com.test.model.User;
 import com.test.repository.RoleRepository;
 import com.test.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,12 +16,35 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Component
-@RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.admin.primary.username:frederic}")
+    private String primaryAdminUsername;
+
+    @Value("${app.admin.primary.email:ntawukuriryayofrederic817@gmail.com}")
+    private String primaryAdminEmail;
+
+    @Value("${app.admin.primary.password:123}")
+    private String primaryAdminPassword;
+
+    @Value("${app.admin.standard.username:admin}")
+    private String standardAdminUsername;
+
+    @Value("${app.admin.standard.email:admin@documenthub.com}")
+    private String standardAdminEmail;
+
+    @Value("${app.admin.standard.password:admin}")
+    private String standardAdminPassword;
+
+    public DataInitializer(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -30,12 +53,10 @@ public class DataInitializer implements ApplicationRunner {
         Role adminRole = ensureRole("ROLE_ADMIN", "Administrator role with full access");
 
         // Initialize Super Admin User (Primary)
-        String primaryAdmin = "frederic";
-        ensureAdminUser(primaryAdmin, "ntawukuriryayofrederic817@gmail.com", "123", "Frederic", "Admin", adminRole, userRole);
+        ensureAdminUser(primaryAdminUsername, primaryAdminEmail, primaryAdminPassword, "Frederic", "Admin", adminRole, userRole);
 
         // Initialize Standard Admin User (Convention)
-        String standardAdmin = "admin";
-        ensureAdminUser(standardAdmin, "admin@documenthub.com", "admin", "System", "Administrator", adminRole, userRole);
+        ensureAdminUser(standardAdminUsername, standardAdminEmail, standardAdminPassword, "System", "Administrator", adminRole, userRole);
     }
 
     private void ensureAdminUser(String username, String email, String password, String firstName, String lastName, Role adminRole, Role userRole) {
